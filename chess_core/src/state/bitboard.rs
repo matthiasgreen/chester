@@ -34,19 +34,25 @@ impl BitBoard {
     }
 
     pub fn set(&mut self, square: Square) {
-        self.0 |= 1 << square.0
+        self.0 |= 1 << square.get()
     }
 
     pub fn unset(&mut self, square: Square) {
-        self.0 &= !(1 << square.0)
+        // debug_assert_ne!(self.0 & (1 << square.get()), 0);
+        self.0 &= !(1 << square.get())
+    }
+
+    pub fn r#move(&mut self, from: Square, to: Square) {
+        self.unset(from);
+        self.set(to);
     }
 
     pub fn toggle(&mut self, square: Square) {
-        self.0 ^= 1 << square.0
+        self.0 ^= 1 << square.get()
     }
 
     pub fn get(&self, square: Square) -> bool {
-        self.0 & (1 << square.0) != 0
+        self.0 & (1 << square.get()) != 0
     }
 
     pub fn pop_first_square(&mut self) -> Option<Square> {
@@ -55,7 +61,7 @@ impl BitBoard {
         } else {
             let lsb = self.0.trailing_zeros() as u8;
             self.0 &= !(1 << lsb);
-            Some(Square(lsb))
+            Some(Square::try_from(lsb).unwrap())
         }
     }
 
@@ -65,7 +71,7 @@ impl BitBoard {
         } else {
             let msb = 63 - self.0.leading_zeros() as u8;
             self.0 &= !(1 << msb);
-            Some(Square(msb))
+            Some(Square::try_from(msb).unwrap())
         }
     }
 
@@ -73,7 +79,7 @@ impl BitBoard {
         if self.is_empty() {
             None
         } else {
-            Some(Square(self.0.trailing_zeros() as u8))
+            Some(Square::try_from(self.0.trailing_zeros() as u8).unwrap())
         }
     }
 
@@ -81,7 +87,7 @@ impl BitBoard {
         if self.is_empty() {
             None
         } else {
-            Some(Square(63 - self.0.leading_zeros() as u8))
+            Some(Square::try_from(63 - self.0.leading_zeros() as u8).unwrap())
         }
     }
 
@@ -166,14 +172,20 @@ mod tests {
     #[test]
     fn test_pop_lsb() {
         let mut bb = BitBoard(0b1100);
-        assert_eq!(bb.pop_first_square().unwrap(), Square(2));
+        assert_eq!(
+            bb.pop_first_square().unwrap(),
+            Square::try_from(2_u8).unwrap()
+        );
         assert_eq!(bb, 0b1000.into());
     }
 
     #[test]
     fn test_pop_msb() {
         let mut bb = BitBoard(0b1100);
-        assert_eq!(bb.pop_last_square().unwrap(), Square(3));
+        assert_eq!(
+            bb.pop_last_square().unwrap(),
+            Square::try_from(3_u8).unwrap()
+        );
         assert_eq!(bb, 0b0100.into());
     }
 
@@ -181,14 +193,23 @@ mod tests {
     fn test_get_lsb() {
         let bb = BitBoard(0b1100);
         println!("{}", 0_u64.trailing_zeros());
-        assert_eq!(bb.get_first_square().unwrap(), Square(2));
+        assert_eq!(
+            bb.get_first_square().unwrap(),
+            Square::try_from(2_u8).unwrap()
+        );
         // assert_eq!(0.get_lsb(), 64);
     }
 
     #[test]
     fn test_get_msb() {
         let bb = BitBoard(0b1100);
-        assert_eq!(bb.get_last_square().unwrap(), Square(3));
-        assert_eq!(BitBoard(1).get_last_square().unwrap(), Square(0));
+        assert_eq!(
+            bb.get_last_square().unwrap(),
+            Square::try_from(3_u8).unwrap()
+        );
+        assert_eq!(
+            BitBoard(1).get_last_square().unwrap(),
+            Square::try_from(0_u8).unwrap()
+        );
     }
 }

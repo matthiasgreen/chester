@@ -1,10 +1,11 @@
 use bitfields::bitfield;
 use derive_more::BitXor;
+use itertools::Itertools;
 
-use crate::color::Color;
+use crate::{color::Color, square::CastleSide};
 
-#[bitfield(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, BitXor)]
+#[bitfield(u8, debug = false)]
+#[derive(Clone, Eq, PartialEq, BitXor)]
 pub struct StateFlags {
     #[bits(1, default = Color::White)]
     active_color: Color,
@@ -25,24 +26,43 @@ pub struct StateFlags {
     black_queen_castle_right: bool,
 }
 
+impl std::fmt::Debug for StateFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StateFlags")
+            .field("active_color", &self.active_color())
+            .field(
+                "castle_rights",
+                &Color::as_array()
+                    .into_iter()
+                    .cartesian_product(CastleSide::as_array())
+                    .filter(|(color, side)| self.castle_right(*color, *side))
+                    .map(|(color, side)| format!("{:?}{:?}", color, side))
+                    .collect_vec(),
+            )
+            .finish()
+    }
+}
+
 impl StateFlags {
-    pub fn toggle_white_king_castle(&mut self) {
-        self.set_white_king_castle_right(!self.white_king_castle_right());
+    pub fn set_castle_right(&mut self, color: Color, side: CastleSide, value: bool) {
+        match (color, side) {
+            (Color::White, CastleSide::King) => self.set_white_king_castle_right(value),
+            (Color::White, CastleSide::Queen) => self.set_white_queen_castle_right(value),
+            (Color::Black, CastleSide::King) => self.set_black_king_castle_right(value),
+            (Color::Black, CastleSide::Queen) => self.set_black_queen_castle_right(value),
+        }
     }
 
-    pub fn toggle_white_queen_castle(&mut self) {
-        self.set_white_queen_castle_right(!self.white_queen_castle_right());
+    pub fn castle_right(&self, color: Color, side: CastleSide) -> bool {
+        match (color, side) {
+            (Color::White, CastleSide::King) => self.white_king_castle_right(),
+            (Color::White, CastleSide::Queen) => self.white_queen_castle_right(),
+            (Color::Black, CastleSide::King) => self.black_king_castle_right(),
+            (Color::Black, CastleSide::Queen) => self.black_queen_castle_right(),
+        }
     }
 
-    pub fn toggle_black_king_castle(&mut self) {
-        self.set_black_king_castle_right(!self.black_king_castle_right());
-    }
-
-    pub fn toggle_black_queen_castle(&mut self) {
-        self.set_black_queen_castle_right(!self.black_queen_castle_right());
-    }
-
-    pub fn toggle_active_color(&mut self) {
+    pub fn toggle_color(&mut self) {
         self.set_active_color(!self.active_color());
     }
 

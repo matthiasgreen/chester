@@ -8,3 +8,8 @@ derive_more = { version = "2.0.1", features = ["from", "add", "mul", "not", "add
 bitfields = "1.0.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
+itertools = "0.14.0"
+lazy_static = "1.5.0"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"

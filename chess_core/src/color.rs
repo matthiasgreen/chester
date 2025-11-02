@@ -20,6 +20,10 @@ impl Color {
     pub const fn into_bits(self) -> u8 {
         self as u8
     }
+
+    pub const fn as_array() -> [Color; 2] {
+        [White, Black]
+    }
 }
 
 impl From<Color> for char {

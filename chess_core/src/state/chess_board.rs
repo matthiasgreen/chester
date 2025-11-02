@@ -1,7 +1,9 @@
-use crate::{square::Square, state::bitboard::BitBoard};
+use std::ops::{Index, IndexMut};
+
+use crate::{color::Color, square::Square, state::bitboard::BitBoard};
 
 /// Enum representing the type of a piece.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
     Pawn,
     Knight,
@@ -11,21 +13,29 @@ pub enum PieceType {
     King,
 }
 
+use PieceType::*;
+
+impl PieceType {
+    pub const fn as_array() -> [PieceType; 6] {
+        [Pawn, Knight, Bishop, Rook, Queen, King]
+    }
+}
+
 impl From<PieceType> for char {
     fn from(value: PieceType) -> Self {
         match value {
-            PieceType::Pawn => 'P',
-            PieceType::Knight => 'N',
-            PieceType::Bishop => 'B',
-            PieceType::Rook => 'R',
-            PieceType::Queen => 'Q',
-            PieceType::King => 'K',
+            Pawn => 'P',
+            Knight => 'N',
+            Bishop => 'B',
+            Rook => 'R',
+            Queen => 'Q',
+            King => 'K',
         }
     }
 }
 
 /// A struct that gathers all the bitboards for each piece type for one color.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ChessBoardSide {
     pub pawn: BitBoard,
     pub knight: BitBoard,
@@ -33,6 +43,34 @@ pub struct ChessBoardSide {
     pub rook: BitBoard,
     pub queen: BitBoard,
     pub king: BitBoard,
+}
+
+impl IndexMut<PieceType> for ChessBoardSide {
+    fn index_mut(&mut self, index: PieceType) -> &mut Self::Output {
+        match index {
+            PieceType::Pawn => &mut self.pawn,
+            PieceType::Knight => &mut self.knight,
+            PieceType::Bishop => &mut self.bishop,
+            PieceType::Rook => &mut self.rook,
+            PieceType::Queen => &mut self.queen,
+            PieceType::King => &mut self.king,
+        }
+    }
+}
+
+impl Index<PieceType> for ChessBoardSide {
+    type Output = BitBoard;
+
+    fn index(&self, index: PieceType) -> &Self::Output {
+        match index {
+            PieceType::Pawn => &self.pawn,
+            PieceType::Knight => &self.knight,
+            PieceType::Bishop => &self.bishop,
+            PieceType::Rook => &self.rook,
+            PieceType::Queen => &self.queen,
+            PieceType::King => &self.king,
+        }
+    }
 }
 
 impl ChessBoardSide {
@@ -73,10 +111,30 @@ impl ChessBoardSide {
 }
 
 /// A struct that gathers all the bitboards for each piece type for both colors.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct ChessBoard {
     pub white: ChessBoardSide,
     pub black: ChessBoardSide,
+}
+
+impl IndexMut<Color> for ChessBoard {
+    fn index_mut(&mut self, index: Color) -> &mut Self::Output {
+        match index {
+            Color::White => &mut self.white,
+            Color::Black => &mut self.black,
+        }
+    }
+}
+
+impl Index<Color> for ChessBoard {
+    type Output = ChessBoardSide;
+
+    fn index(&self, index: Color) -> &Self::Output {
+        match index {
+            Color::White => &self.white,
+            Color::Black => &self.black,
+        }
+    }
 }
 
 impl ChessBoard {
@@ -108,7 +166,7 @@ impl ChessBoard {
                         'k' => &mut color_board.king,
                         _ => panic!("Invalid piece type"),
                     };
-                    bb.set(Square::new(rank, file));
+                    bb.set(Square::new_unchecked(rank, file));
                     file += 1;
                 }
             }
@@ -123,7 +181,7 @@ impl ChessBoard {
             for j in 0..8 {
                 let mut found = false;
                 for (board, piece) in self.white.as_array() {
-                    if board.get(Square::new(i, j)) {
+                    if board.get(Square::new_unchecked(i, j)) {
                         if empty > 0 {
                             board_str.push_str(&empty.to_string());
                             empty = 0;
@@ -134,7 +192,7 @@ impl ChessBoard {
                     }
                 }
                 for (board, piece) in self.black.as_array() {
-                    if board.get(Square::new(i, j)) {
+                    if board.get(Square::new_unchecked(i, j)) {
                         if empty > 0 {
                             board_str.push_str(&empty.to_string());
                             empty = 0;
@@ -169,14 +227,14 @@ impl std::fmt::Debug for ChessBoard {
             for j in 0..8 {
                 let mut found = false;
                 for (board, piece) in white_board {
-                    if board.get(Square::new(i, j)) {
+                    if board.get(Square::new_unchecked(i, j)) {
                         board_str.push(piece.into());
                         found = true;
                         break;
                     }
                 }
                 for (board, piece) in black_board {
-                    if board.get(Square::new(i, j)) {
+                    if board.get(Square::new_unchecked(i, j)) {
                         board_str.push(char::from(piece).to_ascii_lowercase());
                         found = true;
                         break;

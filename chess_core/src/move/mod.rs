@@ -7,6 +7,8 @@ mod move_maps;
 
 pub use move_generator::MoveGenerator;
 
+use crate::Insert;
+use crate::square::CastleSide;
 use crate::{square::Square, state::chess_board::PieceType};
 
 #[bitfield(u16, new = false, debug = false)]
@@ -30,6 +32,7 @@ impl Move {
             .with_code(code)
             .build()
     }
+
     pub fn matches_perft_string(self, string: &str) -> bool {
         format!("{}{}", self.from(), self.to()) == string
     }
@@ -38,7 +41,7 @@ impl Move {
 impl Display for Move {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // format: source, target, promotion (a7b8Q)
-        if let Some(promotion) = self.code().promotion() {
+        if let Some(promotion) = self.code().as_promotion() {
             write!(f, "{}{}{}", self.from(), self.to(), char::from(promotion))
         } else {
             write!(f, "{}{}", self.from(), self.to())
@@ -113,7 +116,7 @@ impl MoveCode {
         }
     }
 
-    pub fn promotion(&self) -> Option<PieceType> {
+    pub fn as_promotion(&self) -> Option<PieceType> {
         use PieceType::*;
         match *self {
             KnightPromotion | KnightPromotionCapture => Some(Knight),
@@ -124,10 +127,11 @@ impl MoveCode {
         }
     }
 
-    pub fn is_castle(&self) -> bool {
+    pub fn as_castle(&self) -> Option<CastleSide> {
         match *self {
-            KingCastle | QueenCastle => true,
-            _ => false,
+            KingCastle => Some(CastleSide::King),
+            QueenCastle => Some(CastleSide::Queen),
+            _ => None,
         }
     }
 
@@ -135,6 +139,13 @@ impl MoveCode {
         match *self {
             QuietMove | DoublePawnPush | KingCastle | QueenCastle => true,
             _ => false,
+        }
+    }
+
+    pub fn from_castle(side: CastleSide) -> MoveCode {
+        match side {
+            CastleSide::King => MoveCode::KingCastle,
+            CastleSide::Queen => MoveCode::QueenCastle,
         }
     }
 }
@@ -150,8 +161,8 @@ pub struct MoveList {
     total_count: usize,
 }
 
-impl AddMove for MoveList {
-    fn add_move_to_ply(&mut self, m: Move) {
+impl Insert<Move> for MoveList {
+    fn insert(&mut self, m: Move) {
         assert!(self.current_ply != 0);
         self.moves[self.total_count] = m;
         self.total_count += 1;
@@ -260,39 +271,44 @@ mod tests {
     #[test]
     fn test_move_list() {
         let first_ply_moves = [
-            MoveBuilder::new()
-                .with_from(Square(0))
-                .with_to(Square(1))
-                .build(),
-            MoveBuilder::new()
-                .with_from(Square(0))
-                .with_to(Square(2))
-                .build(),
-            MoveBuilder::new()
-                .with_from(Square(0))
-                .with_to(Square(3))
-                .build(),
+            Move::new(
+                Square::new(0, 0).unwrap(),
+                Square::new(0, 1).unwrap(),
+                MoveCode::QuietMove,
+            ),
+            Move::new(
+                Square::new(0, 0).unwrap(),
+                Square::new(0, 2).unwrap(),
+                MoveCode::QuietMove,
+            ),
+            Move::new(
+                Square::new(0, 0).unwrap(),
+                Square::new(0, 3).unwrap(),
+                MoveCode::QuietMove,
+            ),
         ];
         let second_ply_moves = [
-            MoveBuilder::new()
-                .with_from(Square(0))
-                .with_to(Square(4))
-                .build(),
-            MoveBuilder::new()
-                .with_from(Square(0))
-                .with_to(Square(5))
-                .with_code(MoveCode::Capture)
-                .build(),
-            MoveBuilder::new()
-                .with_from(Square(0))
-                .with_to(Square(6))
-                .build(),
+            Move::new(
+                Square::new(0, 0).unwrap(),
+                Square::new(0, 4).unwrap(),
+                MoveCode::QuietMove,
+            ),
+            Move::new(
+                Square::new(0, 0).unwrap(),
+                Square::new(0, 5).unwrap(),
+                MoveCode::Capture,
+            ),
+            Move::new(
+                Square::new(0, 0).unwrap(),
+                Square::new(0, 6).unwrap(),
+                MoveCode::QuietMove,
+            ),
         ];
 
         let mut move_list = MoveList::new();
         move_list.new_ply();
         for m in first_ply_moves {
-            move_list.add_move_to_ply(m);
+            move_list.insert(m);
         }
         assert_eq!(move_list.current_ply(), &first_ply_moves);
         assert_eq!(move_list.moves[0], first_ply_moves[0]);
@@ -301,7 +317,7 @@ mod tests {
 
         move_list.new_ply();
         for m in second_ply_moves {
-            move_list.add_move_to_ply(m);
+            move_list.insert(m);
         }
         assert_eq!(move_list.current_ply(), &second_ply_moves);
         assert_eq!(move_list.moves[3], second_ply_moves[0]);

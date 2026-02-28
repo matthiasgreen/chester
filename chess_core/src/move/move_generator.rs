@@ -348,7 +348,11 @@ fn capture_in_decreasing_direction(
 
 #[cfg(test)]
 mod tests {
-    use crate::{hash::NoopHasher, r#move::MoveList, position::Position};
+    use crate::{
+        collections::{MoveList, Plys},
+        hash::NoopHasher,
+        position::Position,
+    };
 
     #[test]
     fn test_pseudo_legal_moves_from_starting_position() {

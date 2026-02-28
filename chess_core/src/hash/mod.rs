@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{
     color::Color,
     square::{CastleSide, Square},
@@ -16,7 +18,7 @@ pub trait Hasher {
     fn get(&self) -> u64;
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct NoopHasher {}
 
 impl Hasher for NoopHasher {
@@ -36,10 +38,27 @@ impl Hasher for NoopHasher {
 }
 
 /// This struct allows read access to state, but protects state mutation with hashing
+#[derive(Clone)]
 pub struct HashedState<H: Hasher> {
     state: State,
     hasher: H,
 }
+
+impl<H: Hasher> PartialEq for HashedState<H> {
+    fn eq(&self, other: &Self) -> bool {
+        self.state.en_passant == other.state.en_passant
+            && self.state.boards == other.state.boards
+            && self.state.flags == other.state.flags
+    }
+}
+
+impl<H: Hasher> Hash for HashedState<H> {
+    fn hash<R: std::hash::Hasher>(&self, state: &mut R) {
+        state.write_u64(self.get_hash());
+    }
+}
+
+impl<H: Hasher> Eq for HashedState<H> {}
 
 impl<H: Hasher + Default> Default for HashedState<H> {
     fn default() -> Self {

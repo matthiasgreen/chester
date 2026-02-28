@@ -62,23 +62,14 @@ fn make_move_sequence(position: &mut Position<NoopHasher>, moves: Vec<&str>) {
 }
 
 fn iter_first_level_moves(position: &mut Position<NoopHasher>, depth: u8, total_nodes: &mut u64) {
-    let move_list = &mut MoveList::new();
-    move_list.new_ply();
-    position.pseudo_legal_moves(move_list);
+    let mut move_list = MoveList::new();
 
-    let ply_number = move_list.ply_number();
-    let ply_size = move_list.ply_size(ply_number);
-    for m in 0..ply_size {
-        let m = move_list.r#move(ply_number, m);
-        position.make(m);
-        if position.was_move_legal() {
-            let count = &mut 0;
-            recursive_perft(position, move_list, depth - 1, count);
-            println!("{} {}", m, count);
-            *total_nodes += *count;
-        }
-        position.unmake(m);
-    }
+    position.apply_children(&mut move_list, |m, position, move_list| {
+        let count = &mut 0;
+        recursive_perft(position, move_list, depth - 1, count);
+        println!("{} {}", m, count);
+        *total_nodes += *count;
+    });
 }
 
 fn recursive_perft(

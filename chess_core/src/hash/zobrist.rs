@@ -1,8 +1,4 @@
-// Generate a pseudo-random number for each piece on each square
-// + 1 for the side to move
-// + 4 for the castling rights
-// + 8 for the en passant file
-
+use lazy_static::lazy_static;
 use std::array;
 
 use itertools::Itertools;
@@ -122,17 +118,18 @@ impl ZobristNumbers {
     }
 }
 
+lazy_static! {
+    static ref ZOBRIST_NUMBERS: ZobristNumbers = ZobristNumbers::new();
+}
+
+#[derive(Clone)]
 pub struct ZobristHasher {
-    zobrist_numbers: ZobristNumbers,
     hash: u64,
 }
 
 impl ZobristHasher {
     pub fn new() -> Self {
-        Self {
-            zobrist_numbers: ZobristNumbers::new(),
-            hash: 0,
-        }
+        Self { hash: 0 }
     }
 }
 
@@ -151,12 +148,12 @@ impl Hasher for ZobristHasher {
         {
             let mut b = state.boards[color][piece].clone();
             while let Some(lsb) = b.pop_first_square() {
-                self.hash ^= self.zobrist_numbers.board.get(color, piece)[lsb.get() as usize]
+                self.hash ^= ZOBRIST_NUMBERS.board.get(color, piece)[lsb.get() as usize]
             }
         }
 
         if !state.flags.active_color() == Color::White {
-            self.hash ^= self.zobrist_numbers.flags.active_color;
+            self.hash ^= ZOBRIST_NUMBERS.flags.active_color;
         }
 
         for (color, side) in Color::as_array()
@@ -164,17 +161,17 @@ impl Hasher for ZobristHasher {
             .cartesian_product(CastleSide::as_array())
             .filter(|(color, side)| state.flags.castle_right(*color, *side))
         {
-            self.hash ^= self.zobrist_numbers.flags.get_castle(color, side);
+            self.hash ^= ZOBRIST_NUMBERS.flags.get_castle(color, side);
         }
 
         // En passant
         if let Some(lsb) = state.en_passant.get_first_square() {
-            self.hash ^= self.zobrist_numbers.en_passant_file[lsb.file() as usize];
+            self.hash ^= ZOBRIST_NUMBERS.en_passant_file[lsb.file() as usize];
         }
     }
 
     fn consume_piece(&mut self, color: Color, piece: PieceType, square: crate::square::Square) {
-        self.hash ^= self.zobrist_numbers.board.get(color, piece)[square.get() as usize]
+        self.hash ^= ZOBRIST_NUMBERS.board.get(color, piece)[square.get() as usize]
     }
 
     fn get(&self) -> u64 {
@@ -182,14 +179,14 @@ impl Hasher for ZobristHasher {
     }
 
     fn consume_castle(&mut self, color: Color, side: CastleSide) {
-        self.hash ^= self.zobrist_numbers.flags.get_castle(color, side)
+        self.hash ^= ZOBRIST_NUMBERS.flags.get_castle(color, side)
     }
 
     fn consume_color(&mut self) {
-        self.hash ^= self.zobrist_numbers.flags.active_color
+        self.hash ^= ZOBRIST_NUMBERS.flags.active_color
     }
 
     fn consume_en_passant(&mut self, square: crate::square::Square) {
-        self.hash ^= self.zobrist_numbers.en_passant_file[square.file() as usize]
+        self.hash ^= ZOBRIST_NUMBERS.en_passant_file[square.file() as usize]
     }
 }

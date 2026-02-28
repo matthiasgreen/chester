@@ -17,7 +17,7 @@ pub struct State {
     pub boards: ChessBoard,
     pub en_passant: BitBoard,
     pub flags: StateFlags,
-    pub halfmove: u8,
+    pub halfmove: u16,
 }
 
 impl std::fmt::Debug for State {
@@ -56,7 +56,7 @@ impl State {
             "-" => BitBoard::EMPTY,
             s => BitBoard::from(Square::try_from(s).unwrap()),
         };
-        let halfmove: u8 = halfmove.parse().unwrap();
+        let halfmove: u16 = halfmove.parse().unwrap();
         State {
             boards,
             en_passant,
@@ -103,11 +103,25 @@ impl State {
             Color::Black => &mut self.boards.black,
         }
     }
+
+    pub fn insufficient_material(&self) -> bool {
+        Color::as_array().into_iter().all(|c| {
+            self.boards[c].pawn == BitBoard::EMPTY
+                && self.boards[c].queen == BitBoard::EMPTY
+                && self.boards[c].rook == BitBoard::EMPTY
+                && self.boards[c].knight.count_ones() + self.boards[c].bishop.count_ones() <= 1
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_insufficient_material() {
+        assert!(State::from_fen("8/8/8/8/8/8/8/k1K5 w - - 0 1").insufficient_material())
+    }
 
     #[test]
     fn test_from_fen() {

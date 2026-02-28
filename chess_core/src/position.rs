@@ -2,6 +2,7 @@ use itertools::Itertools;
 
 use crate::{
     Insert,
+    collections::Plys,
     color::Color,
     hash::{HashedState, Hasher},
     r#move::{Move, MoveCode, MoveGenerator},
@@ -9,9 +10,18 @@ use crate::{
     state::{State, bitboard::BitBoard, chess_board::PieceType, flags::StateFlags},
 };
 
+#[derive(Clone)]
 pub struct Position<H: Hasher> {
     pub state: HashedState<H>,
     stack: Vec<IrreversibleInfo>,
+}
+
+impl<H: Hasher> std::fmt::Debug for Position<H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Position")
+            .field("state", &self.state.get())
+            .finish()
+    }
 }
 
 impl<H: Hasher + Default> Default for Position<H> {
@@ -37,6 +47,29 @@ impl<H: Hasher> Position<H> {
 
     pub fn pseudo_legal_moves<T: Insert<Move>>(&self, out: &mut T) {
         MoveGenerator::new(self.state.get()).pseudo_legal_moves(out)
+    }
+
+    /// Apply a function to all children
+    /// Despite self and buf being mutable, they should end up in the same state as before the function call
+    pub fn apply_children<P: Plys<Move> + Insert<Move>>(
+        &mut self,
+        buf: &mut P,
+        mut f: impl FnMut(Move, &mut Self, &mut P),
+    ) {
+        buf.new_ply();
+        self.pseudo_legal_moves(buf);
+        let ply_number = buf.ply_number();
+        let ply_size = buf.ply_size(ply_number);
+
+        for i in 0..ply_size {
+            let m = buf.r#move(ply_number, i);
+            self.make(m);
+            if self.was_move_legal() {
+                f(m, self, buf);
+            }
+            self.unmake(m);
+        }
+        buf.drop_current_ply();
     }
 
     pub fn was_move_legal(&self) -> bool {
@@ -221,9 +254,10 @@ impl<H: Hasher> Position<H> {
 }
 
 /// Irreversible information needed to unmake a move
+#[derive(Clone)]
 struct IrreversibleInfo {
     #[allow(unused)]
-    halfmove: u8,
+    halfmove: u16,
     en_passant: BitBoard,
     flags: StateFlags,
     captured_piece: Option<PieceType>,

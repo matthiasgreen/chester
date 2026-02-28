@@ -1,4 +1,4 @@
-use chess_core::state::{bitboard::BitBoard, game_state::GameState};
+use chess_core::state::{State, bitboard::BitBoard};
 
 use super::super::search::SearchContext;
 
@@ -6,7 +6,7 @@ const DOUBLED_PAWN_COEF: i32 = 40;
 const ISOLATED_PAWN_COEF: i32 = 40;
 const MOBILITY_COEF: i32 = 5;
 
-struct EvaluationContext<'a>(&'a GameState);
+struct EvaluationContext<'a>(&'a State);
 
 impl EvaluationContext<'_> {
     fn doubled_pawn_number(&self) -> i32 {
@@ -92,7 +92,7 @@ impl SearchContext<'_> {
         self.move_list.new_ply();
         let mut move_found = false;
         self.move_generator
-            .get_pseudo_legal_moves(self.make_unmaker.state, &mut self.move_list);
+            .pseudo_legal_moves(self.make_unmaker.state, &mut self.move_list);
         for m in self.move_list.current_ply() {
             self.make_unmaker.make_move(*m);
             if self.move_generator.was_move_legal(self.make_unmaker.state) {
@@ -111,7 +111,7 @@ impl SearchContext<'_> {
         self.move_list.new_ply();
         // let mut move_number = 0;
         self.move_generator
-            .get_pseudo_legal_moves(self.make_unmaker.state, &mut self.move_list);
+            .pseudo_legal_moves(self.make_unmaker.state, &mut self.move_list);
         let res = self.move_list.ply_size(self.move_list.ply_number());
         self.move_list.drop_current_ply();
         res as i32
@@ -164,7 +164,7 @@ mod tests {
             // mate
             // ("8/8/8/8/8/8/5KQ1/7k b - - 0 1", true),
         ] {
-            let state = &mut GameState::from_fen(fen.to_string());
+            let state = &mut State::from_fen(fen.to_string());
             let mut search_context = SearchContext::new(state, None);
             assert_eq!(search_context.is_checkmate(), result);
         }
@@ -194,7 +194,7 @@ mod tests {
                 -300,
             ),
         ] {
-            let state = &mut GameState::from_fen(fen.to_string());
+            let state = &mut State::from_fen(fen.to_string());
             let eval = EvaluationContext(state);
             let score = eval.material_score();
             assert_eq!(score, result);
@@ -225,7 +225,7 @@ mod tests {
                 2 * DOUBLED_PAWN_COEF,
             ),
         ] {
-            let state = &mut GameState::from_fen(fen.to_string());
+            let state = &mut State::from_fen(fen.to_string());
             let eval = EvaluationContext(state);
             let score = eval.doubled_pawn_number() * DOUBLED_PAWN_COEF;
             assert_eq!(score, result, "FEN: {}", fen);
@@ -251,7 +251,7 @@ mod tests {
                 ISOLATED_PAWN_COEF,
             ),
         ] {
-            let state = &mut GameState::from_fen(fen.to_string());
+            let state = &mut State::from_fen(fen.to_string());
             let eval = EvaluationContext(state);
             let score = eval.isolated_pawn_number() * ISOLATED_PAWN_COEF;
             assert_eq!(score, result, "FEN: {}", fen);
@@ -272,7 +272,7 @@ mod tests {
                 4 * MOBILITY_COEF,
             ),
         ] {
-            let state = &mut GameState::from_fen(fen.to_string());
+            let state = &mut State::from_fen(fen.to_string());
             let mut search_context = SearchContext::new(state, None);
             let score = search_context.mobility_score();
             assert_eq!(score, result, "FEN: {}", fen);

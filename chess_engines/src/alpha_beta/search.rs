@@ -2,7 +2,7 @@ use chrono::{Duration, Local};
 
 use chess_core::{
     r#move::{Move, MoveGenerator, MoveList},
-    state::{game_state::GameState, make_unmake::MakeUnmaker},
+    state::{game_state::State, make_unmake::MakeUnmaker},
 };
 
 use super::transposition_table::{TranspositionTable, TtEntry};
@@ -19,7 +19,7 @@ impl SearchContext<'_> {
     const MIN_SCORE: i32 = i32::MIN + 1;
     const MAX_SCORE: i32 = i32::MAX;
 
-    pub fn new(state: &mut GameState, max_depth: Option<u8>) -> SearchContext<'_> {
+    pub fn new(state: &mut State, max_depth: Option<u8>) -> SearchContext<'_> {
         SearchContext {
             make_unmaker: MakeUnmaker::new(state),
             move_generator: MoveGenerator::new(),
@@ -58,7 +58,7 @@ impl SearchContext<'_> {
     fn add_moves_to_list(&mut self, prev_pv: &mut Vec<Move>) -> (usize, usize) {
         self.move_list.new_ply();
         self.move_generator
-            .get_pseudo_legal_moves(self.make_unmaker.state, &mut self.move_list);
+            .pseudo_legal_moves(self.make_unmaker.state, &mut self.move_list);
         self.move_list.order_ply(prev_pv.pop());
 
         let ply_number = self.move_list.ply_number();
@@ -293,7 +293,7 @@ mod tests {
             ),
         ];
         for (fen, (lower_bound, upper_bound, expected_pv)) in cases {
-            let state = &mut GameState::from_fen(fen.to_string());
+            let state = &mut State::from_fen(fen.to_string());
             let prev_pv = &mut Vec::new();
             let pv = &mut Vec::new();
             let mut context = SearchContext::new(state, None);
@@ -323,9 +323,8 @@ mod tests {
         let mut stockfish_stdin = stockfish_cli.stdin.take().unwrap();
         let mut bufreader = BufReader::new(stockfish_cli.stdout.as_mut().unwrap());
 
-        let mut state = GameState::from_fen(
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string(),
-        );
+        let mut state =
+            State::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string());
         let mut search_ctx = SearchContext::new(&mut state, None);
 
         stockfish_stdin
@@ -374,10 +373,9 @@ mod tests {
                 let move_str = buf.split_whitespace().nth(1).unwrap();
                 dbg!(move_str);
                 search_ctx.move_list.new_ply();
-                search_ctx.move_generator.get_pseudo_legal_moves(
-                    search_ctx.make_unmaker.state,
-                    &mut search_ctx.move_list,
-                );
+                search_ctx
+                    .move_generator
+                    .pseudo_legal_moves(search_ctx.make_unmaker.state, &mut search_ctx.move_list);
                 let m = search_ctx
                     .move_list
                     .current_ply()

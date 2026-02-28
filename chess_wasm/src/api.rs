@@ -1,6 +1,6 @@
 use chess_core::{
     r#move::{MoveGenerator, MoveList},
-    state::{game_state::GameState, make_unmake::MakeUnmaker},
+    state::{game_state::State, make_unmake::MakeUnmaker},
 };
 use chess_engines::alpha_beta::search::SearchContext;
 use chrono::Duration;
@@ -20,7 +20,7 @@ pub struct FullGameState {
 }
 
 pub fn evaluate(fgs: FullGameState) -> EvaluationResult {
-    let state = &mut GameState::from_fen(fgs.fen);
+    let state = &mut State::from_fen(fgs.fen);
     let search_ctx = &mut SearchContext::new(state, None);
     let (score, pv) = search_ctx.iterative_deepen(Duration::new(1, 0).unwrap());
 
@@ -32,12 +32,12 @@ pub fn evaluate(fgs: FullGameState) -> EvaluationResult {
 
 /// Does not account for promotion
 pub fn is_move_legal(fen: String, r#move: String) -> bool {
-    let state = &mut GameState::from_fen(fen);
+    let state = &mut State::from_fen(fen);
     let move_generator = &MoveGenerator::new();
     let make_unmaker = &mut MakeUnmaker::new(state);
     let move_list = &mut MoveList::new();
     move_list.new_ply();
-    move_generator.get_pseudo_legal_moves(make_unmaker.state, move_list);
+    move_generator.pseudo_legal_moves(make_unmaker.state, move_list);
     let pseudo_legal_move = move_list
         .current_ply()
         .into_iter()
@@ -51,28 +51,28 @@ pub fn is_move_legal(fen: String, r#move: String) -> bool {
 }
 
 pub fn needs_promotion(fen: String, r#move: String) -> bool {
-    let state = &mut GameState::from_fen(fen);
+    let state = &mut State::from_fen(fen);
     let move_generator = &MoveGenerator::new();
     let make_unmaker = &mut MakeUnmaker::new(state);
     let move_list = &mut MoveList::new();
     move_list.new_ply();
-    move_generator.get_pseudo_legal_moves(make_unmaker.state, move_list);
+    move_generator.pseudo_legal_moves(make_unmaker.state, move_list);
     move_list
         .current_ply()
         .into_iter()
         .find(|m| m.matches_perft_string(r#move.split_at(4).0))
         .unwrap()
         .code()
-        .promotion()
+        .as_promotion()
         .is_some()
 }
 
 pub fn make_move(fgs: FullGameState, r#move: String) -> FullGameState {
-    let state = &mut GameState::from_fen(fgs.fen);
+    let state = &mut State::from_fen(fgs.fen);
     let move_generator = &MoveGenerator::new();
     let make_unmaker = &mut MakeUnmaker::new(state);
     let mut move_list = Vec::new();
-    move_generator.get_pseudo_legal_moves(make_unmaker.state, &mut move_list);
+    move_generator.pseudo_legal_moves(make_unmaker.state, &mut move_list);
     let pseudo_legal_move = move_list
         .into_iter()
         .find(|m| m.matches_perft_string(r#move.as_str()))
@@ -85,7 +85,7 @@ pub fn make_move(fgs: FullGameState, r#move: String) -> FullGameState {
 }
 
 pub fn respond(fgs: FullGameState) -> FullGameState {
-    let state = &mut GameState::from_fen(fgs.fen);
+    let state = &mut State::from_fen(fgs.fen);
     let search_ctx = &mut SearchContext::new(state, None);
     let (_, m) = search_ctx.iterative_deepen(Duration::new(0, 300_000_000).unwrap());
     let make_unmaker = &mut MakeUnmaker::new(state);
